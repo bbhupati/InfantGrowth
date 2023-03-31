@@ -1,0 +1,29 @@
+﻿using System;
+using Microsoft.ApplicationInsights.Extensibility;
+
+public class Startup
+{
+    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddApplicationInsightsTelemetry(Configuration["InstrumentationKey=a94ac5ec-63f5-4768-a652-bd869748dbe2;IngestionEndpoint=https://centralus-2.in.applicationinsights.azure.com/;LiveEndpoint=https://centralus.livediagnostics.monitor.azure.com/"]);
+
+    }
+    public void Configure(IApplicationBuilder app)
+    {
+        //app.UseRouting();
+
+        //// Enable authentication and authorization
+        //app.UseAuthentication();
+        //app.UseAuthorization();
+
+        //app.UseEndpoints(endpoints =>
+        //{
+        //    endpoints.MapControllers();
+        //});
+
+        app.UseApplicationInsightsRequestTelemetry();
+        app.UseApplicationInsightsExceptionTelemetry();
+
+
+    }
+}
