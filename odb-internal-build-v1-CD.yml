@@ -1,0 +1,124 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+variables:
+  buildConfiguration: 'release'
+  BuildPlatform: 'any cpu'
+  system.debug: 'false'
+  projectName: 'InfantGrowth'
+  websiteName: 'InfantGrowth'
+  appPoolName: 'InfantGrowth'
+
+resources: 
+ repositories:
+   - repository: github
+     type: github
+     endpoint: MyGithubServiceConnection
+     name: bbhupati/InfantGrowth
+     ref: master
+
+stages:
+
+- stage: BuildTestPublishArtifact
+  displayName: Build - Test - Publish Artifact
+  jobs:
+  - job: Job_1
+    displayName: Agent job 1
+    pool:
+      vmImage: windows-latest
+    steps:
+    - checkout: github
+      clean: true
+    - task: CmdLine@2
+      displayName: Create Publish Directory
+      inputs:
+        script: mkdir "C:\InfantGrowth"
+    - task: NuGetToolInstaller@1
+      displayName: 'Use NuGet '
+      inputs:
+        checkLatest: true
+    - task: NuGetCommand@2
+      displayName: NuGet restore
+      inputs:
+        solution: Project/Project.sln
+    - task: MSBuild@1
+      displayName: Build InfantGrowth solution
+      inputs:
+        solution: Project/Project.sln
+        platform: $(BuildPlatform)
+        configuration: $(BuildConfiguration)
+        clean: true
+    - task: CopyFiles@2
+      displayName: Copy Files to Publish directory
+      inputs:
+        SourceFolder: Project
+        Contents: '**\*'
+        TargetFolder: C:\Project
+    - task: CopyFiles@2
+      displayName: Copy Files to :$(Build.ArtifactStagingDirectory)/Project
+      inputs:
+        SourceFolder: C:/Project
+        Contents: '**\*'
+        TargetFolder: $(Build.ArtifactStagingDirectory)/InfantGrowth.zip
+      
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact: of Project'
+
+- stage: 'DeployWeb'
+  displayName: 'Deploy to Web'
+  # dependsOn: 'Build'
+  # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  jobs:
+   - deployment: Dev
+     displayName: Dev
+     environment: 
+       name: 'Env'    
+       resourceType: VirtualMachine
+     variables:
+     - name: websitePhysicalPath
+       value: '%SystemDrive%\inetpub\wwwroot\$(websiteName)'
+
+     strategy:
+      runOnce:
+        deploy:
+          steps: 
+          - task: IISWebAppManagementOnMachineGroup@0
+            inputs:            
+              IISDeploymentType: 'IISWebsite'
+              ActionIISWebsite: 'CreateOrUpdateWebsite'
+              WebsiteName: '$(websiteName)'
+              WebsitePhysicalPath: '$(websitePhysicalPath)'
+              WebsitePhysicalPathAuth: 'WebsiteUserPassThrough'
+              CreateOrUpdateAppPoolForWebsite: true
+              AppPoolNameForWebsite: '$(appPoolName)'
+              DotNetVersionForWebsite: 'v4.0'
+              PipeLineModeForWebsite: 'Integrated'
+              AppPoolIdentityForWebsite: 'ApplicationPoolIdentity'
+              AddBinding: true
+              Bindings: |
+                  {
+                      bindings:[
+                          {
+                              "protocol":"http",
+                              "ipAddress":"",
+                              "hostname":"",
+                              "port":"8000",
+                              "sslThumbprint":"",
+                              "sniFlag":false
+                          }
+                      ]
+                  }
+          - task: IISWebAppDeploymentOnMachineGroup@0
+            inputs:
+              WebSiteName: '$(websiteName)'
+              # Package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/$(projectName).zip'
+              Package: '$(Pipeline.Workspace)/drop/$(projectName).zip'
+
+
+
+
